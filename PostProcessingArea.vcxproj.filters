@@ -127,5 +127,20 @@
     <FxCompile Include="2DPolygon_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="VerticalGradient_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Blur_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Underwater_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="GaussianHorizontalBlur.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="GaussianVerticalBlur.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -40,6 +40,9 @@ enum class PostProcess
 	Distort,
 	Spiral,
 	HeatHaze,
+	VerticalGradient,
+	Blur,
+	Underwater
 };
 
 enum class PostProcessMode
@@ -484,7 +487,7 @@ void RenderSceneFromCamera(Camera* camera)
 
 // Select the appropriate shader plus any additional textures required for a given post-process
 // Helper function shared by full-screen, area and polygon post-processing functions below
-void SelectPostProcessShaderAndTextures(PostProcess postProcess)
+void SelectPostProcessShaderAndTextures(PostProcess postProcess, float frameTime)
 {
 	if (postProcess == PostProcess::Copy)
 	{
@@ -531,13 +534,38 @@ void SelectPostProcessShaderAndTextures(PostProcess postProcess)
 	else if (postProcess == PostProcess::HeatHaze)
 	{
 		gD3DContext->PSSetShader(gHeatHazePostProcess, nullptr, 0);
+	}	
+	
+	else if (postProcess == PostProcess::VerticalGradient)
+	{
+		gD3DContext->PSSetShader(gVerticalGradientPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.topColour = { 0.0f, 0.0f, 1.0f, 1.0f }; // Blue at the top.
+		gPostProcessingConstants.bottomColour = { 1.0f, 1.0f, 0.0f, 1.0f }; // Yellow at the bottom.
+	}
+
+	else if (postProcess == PostProcess::Blur)
+	{
+		gD3DContext->PSSetShader(gBlurPostProcess, nullptr, 0);
+
+		// Update the constant buffer with the current texel size.
+		gPostProcessingConstants.texelSize = { 1.0f / static_cast<float>(gViewportWidth) * 2.0f, 
+			1.0f / static_cast<float>(gViewportHeight) * 2.0f };
+	}
+
+	else if (postProcess == PostProcess::Underwater)
+	{
+		gD3DContext->PSSetShader(gUnderwaterPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.underWaterTimer += frameTime;
+		gPostProcessingConstants.frequency = 3.0f;
+		gPostProcessingConstants.amplitude = 0.01f;
 	}
 }
 
 
-
 // Perform a full-screen post process from "scene texture" to back buffer
-void FullScreenPostProcess(PostProcess postProcess)
+void FullScreenPostProcess(PostProcess postProcess, float frameTime)
 {
 	// Select the back buffer to use for rendering. Not going to clear the back-buffer because we're going to overwrite it all
 	gD3DContext->OMSetRenderTargets(1, &gBackBufferRenderTarget, gDepthStencil);
@@ -565,7 +593,7 @@ void FullScreenPostProcess(PostProcess postProcess)
 
 
 	// Select shader and textures needed for the required post-processes (helper function above)
-	SelectPostProcessShaderAndTextures(postProcess);
+	SelectPostProcessShaderAndTextures(postProcess, frameTime);
 
 
 	// Set 2D area for full-screen post-processing (coordinates in 0->1 range)
@@ -586,10 +614,10 @@ void FullScreenPostProcess(PostProcess postProcess)
 
 
 // Perform an area post process from "scene texture" to back buffer at a given point in the world, with a given size (world units)
-void AreaPostProcess(PostProcess postProcess, CVector3 worldPoint, CVector2 areaSize)
+void AreaPostProcess(PostProcess postProcess, CVector3 worldPoint, CVector2 areaSize, float frameTime)
 {
 	// First perform a full-screen copy of the scene to back-buffer
-	FullScreenPostProcess(PostProcess::Copy);
+	FullScreenPostProcess(PostProcess::Copy, frameTime);
 	
 
 	// Now perform a post-process of a portion of the scene to the back-buffer (overwriting some of the copy above)
@@ -598,7 +626,7 @@ void AreaPostProcess(PostProcess postProcess, CVector3 worldPoint, CVector2 area
 	//       aware of all the work that the above function did that was also preparation for this post-process area step
 
 	// Select shader/textures needed for required post-process
-	SelectPostProcessShaderAndTextures(postProcess);
+	SelectPostProcessShaderAndTextures(postProcess, frameTime);
 
 	// Enable alpha blending - area effects need to fade out at the edges or the hard edge of the area is visible
 	// A couple of the shaders have been updated to put the effect into a soft circle
@@ -653,10 +681,10 @@ void AreaPostProcess(PostProcess postProcess, CVector3 worldPoint, CVector2 area
 
 
 // Perform an post process from "scene texture" to back buffer within the given four-point polygon and a world matrix to position/rotate/scale the polygon
-void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& points, const CMatrix4x4& worldMatrix)
+void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& points, const CMatrix4x4& worldMatrix, float frameTime)
 {
 	// First perform a full-screen copy of the scene to back-buffer
-	FullScreenPostProcess(PostProcess::Copy);
+	FullScreenPostProcess(PostProcess::Copy, frameTime);
 
 
 	// Now perform a post-process of a portion of the scene to the back-buffer (overwriting some of the copy above)
@@ -665,7 +693,7 @@ void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& 
 	//       aware of all the work that the above function did that was also preparation for this post-process area step
 
 	// Select shader/textures needed for required post-process
-	SelectPostProcessShaderAndTextures(postProcess);
+	SelectPostProcessShaderAndTextures(postProcess, frameTime);
 
 	// Loop through the given points, transform each to 2D (this is what the vertex shader normally does in most labs)
 	for (unsigned int i = 0; i < points.size(); ++i)
@@ -692,7 +720,7 @@ void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& 
 
 
 // Rendering the scene
-void RenderScene()
+void RenderScene(float frameTime)
 {
 	//// Common settings ////
 
@@ -750,13 +778,13 @@ void RenderScene()
 	{
 		if (gCurrentPostProcessMode == PostProcessMode::Fullscreen)
 		{
-			FullScreenPostProcess(gCurrentPostProcess);
+			FullScreenPostProcess(gCurrentPostProcess, frameTime);
 		}
 
 		else if (gCurrentPostProcessMode == PostProcessMode::Area)
 		{
 			// Pass a 3D point for the centre of the affected area and the size of the (rectangular) area in world units
-			AreaPostProcess(gCurrentPostProcess, gLights[0].model->Position(), { 10, 10 });
+			AreaPostProcess(gCurrentPostProcess, gLights[0].model->Position(), { 10, 10 }, frameTime);
 		}
 
 		else if (gCurrentPostProcessMode == PostProcessMode::Polygon)
@@ -769,7 +797,7 @@ void RenderScene()
 			polyMatrix = MatrixRotationY(ToRadians(1)) * polyMatrix;
 			
 			// Pass an array of 4 points and a matrix. Only supports 4 points.
-			PolygonPostProcess(gCurrentPostProcess, points, polyMatrix);
+			PolygonPostProcess(gCurrentPostProcess, points, polyMatrix, frameTime);
 
 		}
 
@@ -799,14 +827,29 @@ void UpdateScene(float frameTime)
 	if (KeyHit(Key_F2))  gCurrentPostProcessMode = PostProcessMode::Area;
 	if (KeyHit(Key_F3))  gCurrentPostProcessMode = PostProcessMode::Polygon;
 
-	if (KeyHit(Key_1))   gCurrentPostProcess = PostProcess::Tint;
-	if (KeyHit(Key_2))   gCurrentPostProcess = PostProcess::GreyNoise;
-	if (KeyHit(Key_3))   gCurrentPostProcess = PostProcess::Burn;
-	if (KeyHit(Key_4))   gCurrentPostProcess = PostProcess::Distort;
-	if (KeyHit(Key_5))   gCurrentPostProcess = PostProcess::Spiral;
-	if (KeyHit(Key_6))   gCurrentPostProcess = PostProcess::HeatHaze;
-	if (KeyHit(Key_9))   gCurrentPostProcess = PostProcess::Copy;
-	if (KeyHit(Key_0))   gCurrentPostProcess = PostProcess::None;
+	if (KeyHit(Key_1)) {
+		if (gCurrentPostProcess == PostProcess::VerticalGradient) gCurrentPostProcess = PostProcess::None;
+		else gCurrentPostProcess = PostProcess::VerticalGradient;
+	}
+
+	if (KeyHit(Key_2)) {
+		if (gCurrentPostProcess == PostProcess::Blur) gCurrentPostProcess = PostProcess::None;
+		else gCurrentPostProcess = PostProcess::Blur;
+	}
+
+	if (KeyHit(Key_3)) {
+		if (gCurrentPostProcess == PostProcess::Underwater) gCurrentPostProcess = PostProcess::None;
+		else gCurrentPostProcess = PostProcess::Underwater;
+	}
+
+	//if (KeyHit(Key_1))   gCurrentPostProcess = PostProcess::Tint;
+	//if (KeyHit(Key_2))   gCurrentPostProcess = PostProcess::GreyNoise;
+	//if (KeyHit(Key_3))   gCurrentPostProcess = PostProcess::Burn;
+	//if (KeyHit(Key_4))   gCurrentPostProcess = PostProcess::Distort;
+	//if (KeyHit(Key_5))   gCurrentPostProcess = PostProcess::Spiral;
+	//if (KeyHit(Key_6))   gCurrentPostProcess = PostProcess::HeatHaze;
+	//if (KeyHit(Key_9))   gCurrentPostProcess = PostProcess::Copy;
+	//if (KeyHit(Key_0))   gCurrentPostProcess = PostProcess::None;
 
 	// Post processing settings - all data for post-processes is updated every frame whether in use or not (minimal cost)
 	

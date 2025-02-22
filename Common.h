@@ -141,6 +141,22 @@ struct PostProcessingConstants
 	// Heat haze post-process settings
 	float    heatHazeTimer;
 	CVector3 paddingF;
+
+	// Comment 1
+	CVector4 topColour;
+	CVector4 bottomColour;
+	CVector3 paddingG;
+
+	// Comment 2
+	CVector2 texelSize;
+	CVector3 paddingH;
+
+	// Comment 3
+	float underWaterTimer;
+	float frequency;
+	float amplitude;
+	CVector3 paddingI;
+
 };
 extern PostProcessingConstants gPostProcessingConstants;      // This variable holds the CPU-side constant buffer described above
 extern ID3D11Buffer*           gPostProcessingConstantBuffer; // This variable controls the GPU-side constant buffer related to the above structure
