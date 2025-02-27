@@ -143,19 +143,28 @@ struct PostProcessingConstants
 	CVector3 paddingF;
 
 	// Comment 1
-	CVector4 topColour;
-	CVector4 bottomColour;
-	CVector3 paddingG;
+	CVector3 topColour;
+	float    paddingG;
+
+	// Comment 1
+	CVector3 bottomColour;
+	float    paddingH;
+
+	// Comment 3
+	float	 underWaterTimer;
+	float	 frequency;
+	float	 amplitude;
+	float	 paddingI;
 
 	// Comment 2
 	CVector2 texelSize;
-	CVector3 paddingH;
+	float blurStrength;
+	float feedbackAmount;
 
-	// Comment 3
-	float underWaterTimer;
-	float frequency;
-	float amplitude;
-	CVector3 paddingI;
+	//Comment 4
+	float pixelSize;
+	int paletteSize;
+	CVector3 paddingJ;
 
 };
 extern PostProcessingConstants gPostProcessingConstants;      // This variable holds the CPU-side constant buffer described above

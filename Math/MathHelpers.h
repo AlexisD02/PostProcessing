@@ -43,6 +43,13 @@ constexpr float ToDegrees(float r)
 }
 
 
+inline int Random(const int a, const int b)
+{
+	// Could just use a + rand() % (b-a), but using a more complex form to allow range
+	// to exceed RAND_MAX and still return values spread across the range
+	int t = (b - a + 1) * rand();
+	return t == 0 ? a : a + (t - 1) / RAND_MAX;
+}
 
 // Return random integer from a to b (inclusive)
 // Can only return up to RAND_MAX different values, spread evenly across the given range

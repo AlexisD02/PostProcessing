@@ -24,16 +24,13 @@ SamplerState PointSample : register(s0); // Use point sampling for post-processi
 float4 main(PostProcessingInput input) : SV_Target
 {
     // Sample the original scene texture at the provided UV coordinate.
-    float4 sceneColour = SceneTexture.Sample(PointSample, input.sceneUV);
+    float3 sceneColour = SceneTexture.Sample(PointSample, input.sceneUV).rgb;
     
     // Use the vertical coordinate from areaUV (0 at top, 1 at bottom) to interpolate between gTopColour and gBottomColour.
-    float4 gradientTint = lerp(gTopColour, gBottomColour, saturate(input.areaUV.y));
+    float3 gradientTint = lerp(gTopColour, gBottomColour, saturate(input.areaUV.y));
     
     // Apply the gradient tint by multiplying it with the scene color.
-    float4 outputColour = sceneColour * gradientTint;
+    float3 outputColour = sceneColour * gradientTint;
     
-    // Set output alpha to fully opaque.
-    outputColour.a = 1.0f;
-    
-    return outputColour;
+    return float4(outputColour, 1.0f);
 }

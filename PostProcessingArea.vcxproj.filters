@@ -136,10 +136,13 @@
     <FxCompile Include="Underwater_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="GaussianHorizontalBlur.hlsl">
+    <FxCompile Include="GaussianHorizontalBlur_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="GaussianVerticalBlur.hlsl">
+    <FxCompile Include="GaussianVerticalBlur_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="RetroGame_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
   </ItemGroup>

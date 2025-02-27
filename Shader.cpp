@@ -37,6 +37,9 @@ ID3D11PixelShader*  gHeatHazePostProcess   = nullptr;
 ID3D11PixelShader*	gVerticalGradientPostProcess = nullptr;
 ID3D11PixelShader*	gBlurPostProcess = nullptr;
 ID3D11PixelShader*  gUnderwaterPostProcess = nullptr;
+ID3D11PixelShader*  gGaussianHorizontalBlurPostProcess = nullptr;
+ID3D11PixelShader*  gGaussianVerticalBlurPostProcess = nullptr;
+ID3D11PixelShader*  gRetroGamePostProcess = nullptr;
 
 //--------------------------------------------------------------------------------------
 // Shader creation / destruction
@@ -68,6 +71,10 @@ bool LoadShaders()
 	gVerticalGradientPostProcess = LoadPixelShader ("VerticalGradient_pp");
 	gBlurPostProcess	   = LoadPixelShader ("Blur_pp");
 	gUnderwaterPostProcess = LoadPixelShader ("Underwater_pp");
+	gGaussianHorizontalBlurPostProcess = LoadPixelShader ("GaussianHorizontalBlur_pp");
+	gGaussianVerticalBlurPostProcess = LoadPixelShader ("GaussianVerticalBlur_pp");
+	gRetroGamePostProcess = LoadPixelShader ("RetroGame_pp");
+
 
 	if (gBasicTransformVertexShader == nullptr || gPixelLightingVertexShader == nullptr ||
 		gTintedTexturePixelShader   == nullptr || gPixelLightingPixelShader  == nullptr ||
@@ -76,7 +83,9 @@ bool LoadShaders()
 		gGreyNoisePostProcess       == nullptr || gBurnPostProcess           == nullptr ||
 		gDistortPostProcess         == nullptr || gSpiralPostProcess         == nullptr ||
 		g2DPolygonVertexShader      == nullptr || gVerticalGradientPostProcess == nullptr ||
-		gBlurPostProcess			== nullptr || gUnderwaterPostProcess	 == nullptr)
+		gBlurPostProcess			== nullptr || gUnderwaterPostProcess	 == nullptr ||
+		gGaussianHorizontalBlurPostProcess == nullptr || gGaussianVerticalBlurPostProcess == nullptr ||
+		gRetroGamePostProcess == nullptr )
 	{
 		gLastError = "Error loading shaders";
 		return false;
@@ -104,6 +113,9 @@ void ReleaseShaders()
 	if (gVerticalGradientPostProcess) gVerticalGradientPostProcess->Release();
 	if (gBlurPostProcess)			  gBlurPostProcess->Release();
 	if (gUnderwaterPostProcess)		  gUnderwaterPostProcess->Release();
+	if (gGaussianHorizontalBlurPostProcess)		  gGaussianHorizontalBlurPostProcess->Release();
+	if (gGaussianVerticalBlurPostProcess)		  gGaussianVerticalBlurPostProcess->Release();
+	if (gRetroGamePostProcess)		  gRetroGamePostProcess->Release();
 }
 
 

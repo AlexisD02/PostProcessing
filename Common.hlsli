@@ -154,19 +154,28 @@ cbuffer PostProcessingConstants : register(b1)
 	float3 paddingF;
     
     // Comment 1
-    float4 gTopColour;
-    float4 gBottomColour;
-    float3 paddingG;
+    float3 gTopColour;
+    float paddingG;
     
-    // Comment 2
-    float2 gTexelSize;
-    float3 paddingH;
-    
+    // Comment 1
+    float3 gBottomColour;
+    float paddingH;
+        
     // Comment 3
     float gUnderWaterTimer;
     float gFrequency;
     float gAmplitude;
-    float3 paddingI;
+    float paddingI;
+    
+	// Comment 2
+    float2 gTexelSize;
+    float gBlurStrength;
+    float gFeedbackAmount;
+    
+    //Comment 4
+    float gPixelSize;
+    int gPaletteSize;
+    float3 paddingJ;
     
 }
 
