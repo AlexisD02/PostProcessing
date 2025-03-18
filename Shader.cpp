@@ -39,7 +39,20 @@ ID3D11PixelShader*	gBlurPostProcess = nullptr;
 ID3D11PixelShader*  gUnderwaterPostProcess = nullptr;
 ID3D11PixelShader*  gGaussianHorizontalBlurPostProcess = nullptr;
 ID3D11PixelShader*  gGaussianVerticalBlurPostProcess = nullptr;
+ID3D11PixelShader*  gMotionBlurPostProcess = nullptr;
 ID3D11PixelShader*  gRetroGamePostProcess = nullptr;
+ID3D11PixelShader*	gBrightPassPostProcess = nullptr;
+ID3D11PixelShader*  gLensStarPostProcess = nullptr;
+ID3D11PixelShader*  gBloomPostProcess = nullptr;
+ID3D11PixelShader*  gDepthOfFieldPostProcess = nullptr;
+ID3D11PixelShader*  gWireframePostProcess = nullptr;
+ID3D11PixelShader*  gFogPostProcess = nullptr;
+ID3D11PixelShader*  gInvertPostProcess = nullptr;
+ID3D11PixelShader*  gNightVisionPostProcess = nullptr;
+ID3D11PixelShader*  gGameBoyPostProcess = nullptr;
+ID3D11PixelShader*  gSepiaPostProcess = nullptr;
+ID3D11PixelShader*  gChromaticDistortionPostProcess = nullptr;
+ID3D11PixelShader*  gDilationPostProcess = nullptr;
 
 //--------------------------------------------------------------------------------------
 // Shader creation / destruction
@@ -69,12 +82,24 @@ bool LoadShaders()
 	gSpiralPostProcess     = LoadPixelShader ("Spiral_pp");
 	gHeatHazePostProcess   = LoadPixelShader ("HeatHaze_pp");	
 	gVerticalGradientPostProcess = LoadPixelShader ("VerticalGradient_pp");
-	gBlurPostProcess	   = LoadPixelShader ("Blur_pp");
+	gBlurPostProcess	   = LoadPixelShader ("OnePassBlur_pp");
 	gUnderwaterPostProcess = LoadPixelShader ("Underwater_pp");
 	gGaussianHorizontalBlurPostProcess = LoadPixelShader ("GaussianHorizontalBlur_pp");
 	gGaussianVerticalBlurPostProcess = LoadPixelShader ("GaussianVerticalBlur_pp");
+	gMotionBlurPostProcess = LoadPixelShader ("MotionBlur_pp");
 	gRetroGamePostProcess = LoadPixelShader ("RetroGame_pp");
-
+	gBrightPassPostProcess = LoadPixelShader ("BrightPass_pp");
+	gLensStarPostProcess = LoadPixelShader ("LensStar_pp");
+	gBloomPostProcess = LoadPixelShader ("Bloom_pp");
+	gDepthOfFieldPostProcess = LoadPixelShader ("DepthOfField_pp");
+	gWireframePostProcess = LoadPixelShader ("Wireframe_pp");
+	gFogPostProcess = LoadPixelShader ("Fog_pp");
+	gInvertPostProcess = LoadPixelShader ("Invert_pp");
+	gNightVisionPostProcess = LoadPixelShader ("NightVision_pp");
+	gGameBoyPostProcess = LoadPixelShader ("GameBoy_pp");
+	gSepiaPostProcess = LoadPixelShader ("Sepia_pp");
+	gChromaticDistortionPostProcess = LoadPixelShader ("ChromaticDistortion_pp");
+	gDilationPostProcess = LoadPixelShader ("Dilation_pp");
 
 	if (gBasicTransformVertexShader == nullptr || gPixelLightingVertexShader == nullptr ||
 		gTintedTexturePixelShader   == nullptr || gPixelLightingPixelShader  == nullptr ||
@@ -85,7 +110,13 @@ bool LoadShaders()
 		g2DPolygonVertexShader      == nullptr || gVerticalGradientPostProcess == nullptr ||
 		gBlurPostProcess			== nullptr || gUnderwaterPostProcess	 == nullptr ||
 		gGaussianHorizontalBlurPostProcess == nullptr || gGaussianVerticalBlurPostProcess == nullptr ||
-		gRetroGamePostProcess == nullptr )
+		gMotionBlurPostProcess		== nullptr || gRetroGamePostProcess		 == nullptr || 
+		gBrightPassPostProcess		== nullptr || gLensStarPostProcess		 == nullptr || 
+		gBloomPostProcess			== nullptr || gDepthOfFieldPostProcess	 == nullptr ||
+		gWireframePostProcess		== nullptr || gFogPostProcess			 == nullptr || 
+		gInvertPostProcess			== nullptr || gNightVisionPostProcess	 == nullptr ||
+		gGameBoyPostProcess			== nullptr || gSepiaPostProcess			 == nullptr ||
+		gChromaticDistortionPostProcess == nullptr || gDilationPostProcess	 == nullptr )
 	{
 		gLastError = "Error loading shaders";
 		return false;
@@ -115,7 +146,20 @@ void ReleaseShaders()
 	if (gUnderwaterPostProcess)		  gUnderwaterPostProcess->Release();
 	if (gGaussianHorizontalBlurPostProcess)		  gGaussianHorizontalBlurPostProcess->Release();
 	if (gGaussianVerticalBlurPostProcess)		  gGaussianVerticalBlurPostProcess->Release();
+	if (gMotionBlurPostProcess)		  gMotionBlurPostProcess->Release();
 	if (gRetroGamePostProcess)		  gRetroGamePostProcess->Release();
+	if (gBrightPassPostProcess)		  gBrightPassPostProcess->Release();
+	if (gLensStarPostProcess)		  gLensStarPostProcess->Release();
+	if (gBloomPostProcess)			  gBloomPostProcess->Release();
+	if (gDepthOfFieldPostProcess)	  gDepthOfFieldPostProcess->Release();
+	if (gWireframePostProcess)		  gWireframePostProcess->Release();
+	if (gFogPostProcess)			  gFogPostProcess->Release();
+	if (gInvertPostProcess)			  gInvertPostProcess->Release();
+	if (gNightVisionPostProcess)	  gNightVisionPostProcess->Release();
+	if (gGameBoyPostProcess)		  gGameBoyPostProcess->Release();
+	if (gSepiaPostProcess)			  gSepiaPostProcess->Release();
+	if (gChromaticDistortionPostProcess)	  gChromaticDistortionPostProcess->Release();
+	if (gDilationPostProcess)		  gDilationPostProcess->Release();
 }
 
 

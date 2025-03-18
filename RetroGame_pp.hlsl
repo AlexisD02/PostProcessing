@@ -3,14 +3,16 @@
 //--------------------------------------------------------------------------------------
 // Textures & Samplers
 //--------------------------------------------------------------------------------------
+
 Texture2D SceneTexture : register(t0);
 SamplerState PointSample : register(s0);
 
 //--------------------------------------------------------------------------------------
 // Global Variables
 //--------------------------------------------------------------------------------------
+
 // Define limited color palette as an array of float3 values
-static const float3 gColorPalette[] =
+static const float3 gColourPalette[] =
 {
     float3(1.0f, 0.0f, 0.0f), // Red
     float3(0.0f, 1.0f, 0.0f), // Green
@@ -40,8 +42,9 @@ static const float3 gColorPalette[] =
 };
 
 //--------------------------------------------------------------------------------------
-// Retro Game Pixel Shader
+// Shader Code
 //--------------------------------------------------------------------------------------
+
 float4 main(PostProcessingInput input) : SV_Target
 {
     // Snap the sceneUV to a coarse grid to produce the "big pixel" effect
@@ -52,16 +55,17 @@ float4 main(PostProcessingInput input) : SV_Target
 
     // Find the nearest colour in the palette
     float minDistance = 1e9;
-    float3 nearestColour = float3(0.0f, 0.0f, 0.0f);
+    float3 outputColour = float3(0.0f, 0.0f, 0.0f);
+    
     for (unsigned int i = 0; i < gPaletteSize; i++)
     {
-        float distance = length(sampledColour - gColorPalette[i]);
+        float distance = length(sampledColour - gColourPalette[i]);
         if (distance < minDistance)
         {
             minDistance = distance;
-            nearestColour = gColorPalette[i];
+            outputColour = gColourPalette[i];
         }
     }
 
-    return float4(nearestColour, 1.0f);
+    return float4(outputColour, 1.0f);
 }

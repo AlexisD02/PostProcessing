@@ -34,6 +34,7 @@ extern ID3D11DeviceContext*    gD3DContext;
 
 extern IDXGISwapChain*           gSwapChain;
 extern ID3D11RenderTargetView*   gBackBufferRenderTarget; // Back buffer is where we render to
+extern ID3D11Texture2D*			 gDepthStencilTexture; // The texture holding the depth values
 extern ID3D11DepthStencilView*   gDepthStencil;           // The depth buffer contains a depth for each back buffer pixel
 extern ID3D11ShaderResourceView* gDepthShaderView;        // Allows access to the depth buffer as a texture for certain specialised shaders
 
@@ -139,33 +140,96 @@ struct PostProcessingConstants
 	CVector3 paddingE;
 
 	// Heat haze post-process settings
-	float    heatHazeTimer;
+	float    timer;
 	CVector3 paddingF;
 
-	// Comment 1
+	// Vertical gradient post-process settings
 	CVector3 topColour;
 	float    paddingG;
 
-	// Comment 1
 	CVector3 bottomColour;
 	float    paddingH;
 
-	// Comment 3
-	float	 underWaterTimer;
-	float	 frequency;
-	float	 amplitude;
+	// Gaussian blur post-process pass settings
+	CVector2 texelSize;
+	float	 blurStrength;
 	float	 paddingI;
 
-	// Comment 2
-	CVector2 texelSize;
-	float blurStrength;
-	float feedbackAmount;
+	// Underwater post-process pass settings
+	float	 frequency;
+	float	 amplitude;
+	CVector2 paddingJ;
 
-	//Comment 4
-	float pixelSize;
-	int paletteSize;
-	CVector3 paddingJ;
+	// Depth of Field post-process pass settings
+	float	 focalDistance;
+	float	 aperture;
+	float	 nearClip;
+	float	 farClip;
 
+	// Motion blur post-process pass settings
+	float	 blendFactor;
+	CVector3 paddingK;
+
+	// Retro game post-process pass settings
+	float	 pixelSize;
+	int		 paletteSize;
+	CVector2 paddingL;
+
+	// Bright pass post-process pass settings
+	float	 bloomThreshold;
+	float	 exposure;
+	float	 bloomKnee;
+	float	 paddingM;
+
+	// Lens star post-process pass settings
+	float	 stepSize;
+	float	 attenuation;
+	CVector2 paddingN;
+
+	// Bloom post-process pass settings
+	float	 bloomIntensity;
+	float	 starIntensity;
+	CVector2 paddingO;
+
+	// Fog post-process pass settings
+	CVector3 fogColour;
+	float    fogDensity;
+	float    fogHeightStart;
+	float    fogHeightDensity;
+	CVector2 paddingP;
+
+	// Game boy post-process pass settings
+	CVector3 gameBoyColour;
+	float    gameBoyPixelSize;
+	float    gameBoyColourDepth;
+	CVector3 paddingQ;
+
+	// Night vision post-process pass settings
+	CVector3 nightVisionTint;
+	float	 noiseIntensity;
+	float	 vignetteIntensity;
+	float	 flickerIntensity;
+	CVector2 paddingR;
+
+	CVector3 brightnessBoost;
+	float    luminanceThreshold;
+	float    intensity;
+	CVector3 paddingS;
+
+	// Chromatic aberration & distortion post-process pass settings
+	float    chromAbAmount;
+	float    distortionAmount;
+	CVector2 screenCenter;
+
+	// Wireframe post-process pass settings
+	float	 edgeThreshold;
+	float	 edgePower;
+	CVector2 paddingT;
+
+	// Dilation post-process pass settings
+	int		 kernelRadius;
+	CVector3 paddingU;
+	
 };
 extern PostProcessingConstants gPostProcessingConstants;      // This variable holds the CPU-side constant buffer described above
 extern ID3D11Buffer*           gPostProcessingConstantBuffer; // This variable controls the GPU-side constant buffer related to the above structure

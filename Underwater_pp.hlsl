@@ -20,19 +20,17 @@ SamplerState PointSample : register(s0);
 // Shader Code
 //--------------------------------------------------------------------------------------
 
-// The PostProcessingInput structure is defined in Common.hlsli and includes at least
-// input.sceneUV (for sampling the scene texture) and input.areaUV if needed.
 float4 main(PostProcessingInput input) : SV_Target
 {
     float2 offset;
-    offset.x = sin(input.areaUV.x * radians(360.0f) + gUnderWaterTimer * 3.0f);
-    offset.y = cos(input.areaUV.y * radians(360.0f) + gUnderWaterTimer * 3.0f);
+    offset.x = sin(input.areaUV.x * radians(360.0f) + gTimer * 3.0f);
+    offset.y = cos(input.areaUV.y * radians(360.0f) + gTimer * 3.0f);
 	
     float2 waterOffset = offset * gAmplitude;
     
     float3 sceneColour = SceneTexture.Sample(PointSample, input.sceneUV + waterOffset).rgb;
     
-    float3 outputColor = sceneColour * float3(0.0f, 0.3f, 0.6f);
+    float3 outputColour = sceneColour * float3(0.0f, 0.3f, 0.6f);
 
-    return float4(outputColor, 1.0f);
+    return float4(outputColour, 1.0f);
 }

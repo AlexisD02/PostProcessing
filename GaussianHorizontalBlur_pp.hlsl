@@ -29,7 +29,7 @@ float4 main(PostProcessingInput input) : SV_Target
     // Loop through each tap
     for (unsigned int i = 0; i < numTaps; i++)
     {
-        // We only move horizontally in this pass.
+        // Only move horizontally in this pass.
         float2 offset = float2(offsets[i] * gBlurStrength * gTexelSize.x, 0.0f);
 
         outputColour += SceneTexture.Sample(PointSample, input.sceneUV + offset).rgb * weights[i];

@@ -130,7 +130,7 @@
     <FxCompile Include="VerticalGradient_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Blur_pp.hlsl">
+    <FxCompile Include="OnePassBlur_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Underwater_pp.hlsl">
@@ -143,6 +143,45 @@
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
     <FxCompile Include="RetroGame_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Bloom_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="BrightPass_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="LensStar_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="DepthOfField_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Wireframe_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Fog_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Invert_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="NightVision_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="MotionBlur_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="GameBoy_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="ChromaticDistortion_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Sepia_pp.hlsl">
+      <Filter>Post-Processing Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Dilation_pp.hlsl">
       <Filter>Post-Processing Shaders</Filter>
     </FxCompile>
   </ItemGroup>

@@ -37,7 +37,20 @@ extern ID3D11PixelShader*  gBlurPostProcess;
 extern ID3D11PixelShader*  gUnderwaterPostProcess;
 extern ID3D11PixelShader*  gGaussianHorizontalBlurPostProcess;
 extern ID3D11PixelShader*  gGaussianVerticalBlurPostProcess;
+extern ID3D11PixelShader*  gMotionBlurPostProcess;
 extern ID3D11PixelShader*  gRetroGamePostProcess;
+extern ID3D11PixelShader*  gBrightPassPostProcess;
+extern ID3D11PixelShader*  gLensStarPostProcess;
+extern ID3D11PixelShader*  gBloomPostProcess;
+extern ID3D11PixelShader*  gDepthOfFieldPostProcess;
+extern ID3D11PixelShader*  gWireframePostProcess;
+extern ID3D11PixelShader*  gFogPostProcess;
+extern ID3D11PixelShader*  gInvertPostProcess;
+extern ID3D11PixelShader*  gNightVisionPostProcess;
+extern ID3D11PixelShader*  gGameBoyPostProcess;
+extern ID3D11PixelShader*  gSepiaPostProcess;
+extern ID3D11PixelShader*  gChromaticDistortionPostProcess;
+extern ID3D11PixelShader*  gDilationPostProcess;
 
 
 

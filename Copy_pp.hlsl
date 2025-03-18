@@ -24,8 +24,8 @@ SamplerState PointSample  : register(s0); // We don't usually want to filter (bi
 float4 main(PostProcessingInput input) : SV_Target
 {
 	// Sample a pixel from the scene texture
-	float3 colour = SceneTexture.Sample(PointSample, input.sceneUV).rgb;
+	float3 outputColour = SceneTexture.Sample(PointSample, input.sceneUV).rgb;
 	
 	// Got the RGB from the scene texture, set alpha to 1 for final output
-	return float4(colour, 1.0f);
+    return float4(outputColour, 1.0f);
 }

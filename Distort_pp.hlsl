@@ -19,8 +19,6 @@ SamplerState PointSample  : register(s0); // We don't usually want to filter (bi
 Texture2D    DistortMap    : register(t1);
 SamplerState TrilinearWrap : register(s1);
 
-
-
 //--------------------------------------------------------------------------------------
 // Shader code
 //--------------------------------------------------------------------------------------
@@ -46,6 +44,6 @@ float4 main(PostProcessingInput input) : SV_Target
 	// Get final colour by adding fake light colour plus scene texture sampled with distort texture offset
 	float3 outputColour = light + SceneTexture.Sample(PointSample, input.sceneUV + gDistortLevel * distortVector).rgb * glassDarken;
 
-    return float4( outputColour, 1.0f );
+    return float4(outputColour, 1.0f);
 
 }

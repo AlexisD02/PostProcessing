@@ -45,7 +45,21 @@ enum class PostProcess
 	HueVerticalGradient,
 	GaussianBlurHorizontal,
 	GaussianBlurVertical,
-	RetroGame
+	MotionBlur,
+	RetroGame,
+	BrightPass,
+	LensStar,
+	Bloom,
+	DepthOfField,
+	Wireframe, 
+	Fog,
+	Invert,
+	NightVision,
+	GameBoy,
+	Sepia,
+	ChromaticDis,
+	Dilation,
+	OnePassBlur
 };
 
 enum class PostProcessMode
@@ -103,7 +117,7 @@ struct Light
 };
 Light gLights[NUM_LIGHTS];
 
-const int NUM_WINDOWS = 3;
+const int NUM_WINDOWS = 5;
 
 // Additional light information
 CVector3 gAmbientColour = { 0.3f, 0.3f, 0.4f }; // Background level of light (slightly bluish to match the far background, which is dark blue)
@@ -171,13 +185,17 @@ ID3D11Texture2D*		  gSceneTextureTwo		= nullptr; // This object represents the m
 ID3D11RenderTargetView*   gSceneRenderTargetTwo = nullptr; // This object is used when we want to render to the texture above
 ID3D11ShaderResourceView* gSceneTextureSRVTwo	= nullptr; // This object is used to give shaders access to the texture above (SRV = shader resource view)
 
-ID3D11Texture2D*		  gSceneCurrentTexture		= nullptr; // This object represents the memory used by the texture on the GPU
-ID3D11RenderTargetView*	  gSceneCurrentRenderTarget = nullptr; // This object is used when we want to render to the texture above
-ID3D11ShaderResourceView* gSceneCurrentTextureSRV	= nullptr; // This object is used to give shaders access to the texture above (SRV = shader resource view)
+ID3D11Texture2D*		  gSceneTextureThree	 = nullptr;
+ID3D11RenderTargetView*   gSceneRenderTargetThree = nullptr;
+ID3D11ShaderResourceView* gSceneTextureSRVThree	 = nullptr;
 
 ID3D11Texture2D*		  gFeedbackTexture = nullptr;
 ID3D11RenderTargetView*	  gFeedbackRTV	   = nullptr;
 ID3D11ShaderResourceView* gFeedbackSRV	   = nullptr;
+
+ID3D11Texture2D*		  gSceneDepthTexture = nullptr;
+ID3D11DepthStencilView*   gSceneDepthDSV = nullptr;
+ID3D11ShaderResourceView* gSceneDepthSRV = nullptr;
 
 // Additional textures used for specific post-processes
 ID3D11Resource*           gNoiseMap = nullptr;
@@ -187,8 +205,11 @@ ID3D11ShaderResourceView* gBurnMapSRV = nullptr;
 ID3D11Resource*           gDistortMap = nullptr;
 ID3D11ShaderResourceView* gDistortMapSRV = nullptr;
 
+ID3D11ShaderResourceView* gSourceSRV = nullptr;
+ID3D11RenderTargetView*   gTargetRTV = nullptr;
+
 // Unbind the input texture after processing
-ID3D11ShaderResourceView* nullSRV = nullptr;
+ID3D11ShaderResourceView* gNullSRV = nullptr;
 
 //****************************
 
@@ -300,6 +321,18 @@ bool InitGeometry()
 		return false;
 	}
 
+	if (FAILED(gD3DDevice->CreateTexture2D(&sceneTextureDesc, NULL, &gSceneTextureTwo)))
+	{
+		gLastError = "Error creating scene texture two";
+		return false;
+	}
+
+	if (FAILED(gD3DDevice->CreateTexture2D(&sceneTextureDesc, NULL, &gSceneTextureThree)))
+	{
+		gLastError = "Error creating scene texture copy";
+		return false;
+	}
+
 	// We created the scene texture above, now we get a "view" of it as a render target, i.e. get a special pointer to the texture that
 	// we use when rendering to it (see RenderScene function below)
 	if (FAILED(gD3DDevice->CreateRenderTargetView(gSceneTexture, NULL, &gSceneRenderTarget)))
@@ -308,15 +341,15 @@ bool InitGeometry()
 		return false;
 	}
 
-	if (FAILED(gD3DDevice->CreateTexture2D(&sceneTextureDesc, NULL, &gSceneTextureTwo)))
-	{
-		gLastError = "Error creating scene texture two";
-		return false;
-	}
-
 	if (FAILED(gD3DDevice->CreateRenderTargetView(gSceneTextureTwo, NULL, &gSceneRenderTargetTwo)))
 	{
 		gLastError = "Error creating scene render target view two";
+		return false;
+	}
+
+	if (FAILED(gD3DDevice->CreateRenderTargetView(gSceneTextureThree, NULL, &gSceneRenderTargetThree)))
+	{
+		gLastError = "Error creating scene render target view copy";
 		return false;
 	}
 
@@ -350,9 +383,60 @@ bool InitGeometry()
 		return false;
 	}
 
+	if (FAILED(gD3DDevice->CreateShaderResourceView(gSceneTextureThree, &srDesc, &gSceneTextureSRVThree)))
+	{
+		gLastError = "Error creating scene shader resource view copy";
+		return false;
+	}
+
 	if (FAILED(gD3DDevice->CreateShaderResourceView(gFeedbackTexture, &srDesc, &gFeedbackSRV)))
 	{
 		gLastError = "Error creating feedback SRV";
+		return false;
+	}
+
+	// In InitGeometry, after creating gSceneTexture
+	D3D11_TEXTURE2D_DESC depthTextureDesc = {};
+	depthTextureDesc.Width = gViewportWidth;
+	depthTextureDesc.Height = gViewportHeight;
+	depthTextureDesc.MipLevels = 1;
+	depthTextureDesc.ArraySize = 1;
+	depthTextureDesc.Format = DXGI_FORMAT_R32_TYPELESS; // Depth format
+	depthTextureDesc.SampleDesc.Count = 1;
+	depthTextureDesc.SampleDesc.Quality = 0;
+	depthTextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	depthTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	depthTextureDesc.CPUAccessFlags = 0;
+	depthTextureDesc.MiscFlags = 0;
+
+	if (FAILED(gD3DDevice->CreateTexture2D(&depthTextureDesc, NULL, &gSceneDepthTexture)))
+	{
+		gLastError = "Error creating scene depth texture";
+		return false;
+	}
+
+	// Create Depth Stencil View (DSV) for rendering
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT; // Depth view format
+	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Texture2D.MipSlice = 0;
+
+	if (FAILED(gD3DDevice->CreateDepthStencilView(gSceneDepthTexture, &dsvDesc, &gSceneDepthDSV)))
+	{
+		gLastError = "Error creating scene depth stencil view";
+		return false;
+	}
+
+	// Create Shader Resource View (SRV) for shader access
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT; // Shader-readable depth format
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	if (FAILED(gD3DDevice->CreateShaderResourceView(gSceneDepthTexture, &srvDesc, &gSceneDepthSRV)))
+	{
+		gLastError = "Error creating scene depth shader resource view";
 		return false;
 	}
 
@@ -381,6 +465,14 @@ void RemovePostProcessEffect()
 			gActivePostProcesses.pop_back();
 		}
 	}
+	else if (gActivePostProcesses.back().first == PostProcess::Bloom)
+	{
+		// Remove bloom
+		for (unsigned int i = 0; i < 5; i++)
+		{
+			gActivePostProcesses.pop_back();
+		}
+	}
 	else
 	{
 		// Otherwise, just remove the last effect.
@@ -391,16 +483,24 @@ void RemovePostProcessEffect()
 static std::vector<std::array<CVector3, 4>> gAllWallOpening =
 {
 	{
-		CVector3(22.0f, 25.0f, -50.0f), CVector3(22.0f, 5.0f, -50.0f),
-		CVector3(33.0f, 25.0f, -50.0f), CVector3(33.0f, 5.0f, -50.0f)
+		CVector3(30.0f, 20.0f, -70.0f), CVector3(30.0f, 5.0f, -70.0f),
+		CVector3(45.0f, 20.0f, -70.0f), CVector3(45.0f, 5.0f, -70.0f)
 	},
 	{
-		CVector3(36.0f, 25.0f, -50.0f), CVector3(36.0f, 5.0f, -50.0f),
-		CVector3(49.0f, 25.0f, -50.0f), CVector3(49.0f, 5.0f, -50.0f)
+		CVector3(45.0f, 20.0f, -70.0f), CVector3(45.0f, 5.0f, -70.0f),
+		CVector3(60.0f, 20.0f, -70.0f), CVector3(60.0f, 5.0f, -70.0f)
 	},
 	{
-		CVector3(50.0f, 25.0f, -50.0f), CVector3(50.0f, 5.0f, -50.0f),
-		CVector3(63.0f, 25.0f, -50.0f), CVector3(63.0f, 5.0f, -50.0f)
+		CVector3(60.0f, 20.0f, -70.0f), CVector3(60.0f, 5.0f, -70.0f),
+		CVector3(75.0f, 20.0f, -70.0f), CVector3(75.0f, 5.0f, -70.0f)
+	},
+	{
+		CVector3(75.0f, 20.0f, -70.0f), CVector3(75.0f, 5.0f, -70.0f),
+		CVector3(90.0f, 20.0f, -70.0f), CVector3(90.0f, 5.0f, -70.0f)
+	},
+	{
+		CVector3(50.0f, 20.0f, -100.0f), CVector3(50.0f, 5.0f, -100.0f),
+		CVector3(70.0f, 20.0f, -100.0f), CVector3(70.0f, 5.0f, -100.0f)
 	}
 };
 
@@ -412,9 +512,12 @@ std::array<CVector3, 4> GetWallOpeningCoords(int openingIndex)
 void InitPolygonEffects()
 {
 	gCurrentPostProcessMode = PostProcessMode::WindowPolygon;
-	AddPostProcessEffect(PostProcess::Underwater, gCurrentPostProcessMode);
-	AddPostProcessEffect(PostProcess::Underwater, gCurrentPostProcessMode);
-	AddPostProcessEffect(PostProcess::Underwater, gCurrentPostProcessMode);
+
+	AddPostProcessEffect(PostProcess::Sepia, gCurrentPostProcessMode);
+	AddPostProcessEffect(PostProcess::Wireframe, gCurrentPostProcessMode);
+	AddPostProcessEffect(PostProcess::GameBoy, gCurrentPostProcessMode);
+	AddPostProcessEffect(PostProcess::Invert, gCurrentPostProcessMode);
+	AddPostProcessEffect(PostProcess::Distort, gCurrentPostProcessMode);
 }
 
 
@@ -432,6 +535,8 @@ bool InitScene()
 	gWall2  = new Model(gWall2Mesh);
 
 	// Initial positions
+	gGround->SetPosition({ 0.0f, -1.0f, -120.0f });
+	gGround->SetScale(2.0f);
 	gCube->SetPosition({ 42, 5, -10 });
 	gCube->SetRotation({ 0.0f, ToRadians(-110.0f), 0.0f });
 	gCube->SetScale(1.5f);
@@ -440,11 +545,11 @@ bool InitScene()
 	gCrate->SetScale(6.0f);
 	gStars->SetScale(8000.0f);
 
-	gWall->SetPosition({ 70, 0, -100 });
-	gWall->SetRotation({ 180.0f, 0.0f, 0.0f });
-	gWall->SetScale(CVector3( 50.0f, 150.0f, 50.0f ));
+	gWall->SetPosition({ 60, 0, -100 });
+	gWall->SetRotation({ 0.0f, 0.0f, 0.0f });
+	gWall->SetScale(50.0f);
 
-	gWall2->SetPosition({ 75, 0, -150 });
+	gWall2->SetPosition({ 60, 0, -70 });
 	gWall2->SetRotation({ 0.0f, 0.0f, 0.0f });
 	gWall2->SetScale(50.0f);
 
@@ -490,9 +595,17 @@ void ReleaseResources()
 	if (gSceneRenderTargetTwo)            gSceneRenderTargetTwo->Release();
 	if (gSceneTextureTwo)                 gSceneTextureTwo->Release();
 
+	if (gSceneTextureSRVThree)              gSceneTextureSRVThree->Release();
+	if (gSceneRenderTargetThree)            gSceneRenderTargetThree->Release();
+	if (gSceneTextureThree)                 gSceneTextureThree->Release();
+
 	if (gFeedbackSRV)            gFeedbackSRV->Release();
 	if (gFeedbackRTV)            gFeedbackRTV->Release();
 	if (gFeedbackTexture)        gFeedbackTexture->Release();
+
+	if (gSceneDepthSRV)			gSceneDepthSRV->Release();
+	if (gSceneDepthDSV)			gSceneDepthDSV->Release();
+	if (gSceneDepthTexture)		gSceneDepthTexture->Release();
 
 	if (gDistortMapSRV)                gDistortMapSRV->Release();
 	if (gDistortMap)                   gDistortMap->Release();
@@ -679,55 +792,13 @@ void SelectPostProcessShaderAndTextures(PostProcess postProcess, float frameTime
 		gD3DContext->PSSetShader(gCopyPostProcess, nullptr, 0);
 	}
 
-	else if (postProcess == PostProcess::Tint)
-	{
-		gD3DContext->PSSetShader(gTintPostProcess, nullptr, 0);
-	}
-
-	else if (postProcess == PostProcess::GreyNoise)
-	{
-		gD3DContext->PSSetShader(gGreyNoisePostProcess, nullptr, 0);
-
-		// Give pixel shader access to the noise texture
-		gD3DContext->PSSetShaderResources(1, 1, &gNoiseMapSRV);
-		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
-	}
-
-	else if (postProcess == PostProcess::Burn)
-	{
-		gD3DContext->PSSetShader(gBurnPostProcess, nullptr, 0);
-
-		// Give pixel shader access to the burn texture (basically a height map that the burn level ascends)
-		gD3DContext->PSSetShaderResources(1, 1, &gBurnMapSRV);
-		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
-	}
-
-	else if (postProcess == PostProcess::Distort)
-	{
-		gD3DContext->PSSetShader(gDistortPostProcess, nullptr, 0);
-
-		// Give pixel shader access to the distortion texture (containts 2D vectors (in R & G) to shift the texture UVs to give a cut-glass impression)
-		gD3DContext->PSSetShaderResources(1, 1, &gDistortMapSRV);
-		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
-	}
-
-	else if (postProcess == PostProcess::Spiral)
-	{
-		gD3DContext->PSSetShader(gSpiralPostProcess, nullptr, 0);
-	}
-
-	else if (postProcess == PostProcess::HeatHaze)
-	{
-		gD3DContext->PSSetShader(gHeatHazePostProcess, nullptr, 0);
-	}	
-	
 	else if (postProcess == PostProcess::VerticalGradient)
 	{
 		gD3DContext->PSSetShader(gVerticalGradientPostProcess, nullptr, 0);
 
-		// Set the top and bottom colours of the gradient
-		gPostProcessingConstants.topColour = { 0.0f, 0.0f, 1.0f }; // Blue at the top.
-		gPostProcessingConstants.bottomColour = { 1.0f, 1.0f, 0.0f }; // Yellow at the bottom.
+		// Top and bottom colours of the gradient
+		gPostProcessingConstants.topColour = CVector3(0.0f, 0.0f, 1.0f); // Blue at the top.
+		gPostProcessingConstants.bottomColour = CVector3(1.0f, 1.0f, 0.0f); // Yellow at the bottom.
 	}
 
 	else if (postProcess == PostProcess::GaussianBlurHorizontal || postProcess == PostProcess::GaussianBlurVertical)
@@ -737,22 +808,37 @@ void SelectPostProcessShaderAndTextures(PostProcess postProcess, float frameTime
 		else
 			gD3DContext->PSSetShader(gGaussianVerticalBlurPostProcess, nullptr, 0);
 
-		// Adjust texelSize based on render target resolution (example for half-res)
+		// Texel size based on render target resolution
 		gPostProcessingConstants.texelSize = {
 			2.0f / static_cast<float>(gViewportWidth),
 			2.0f / static_cast<float>(gViewportHeight)
 		};
-		gPostProcessingConstants.blurStrength = 1.5f;
-		gPostProcessingConstants.feedbackAmount = 1.0f;
+		gPostProcessingConstants.blurStrength = 2.0f;
 	}
 
 	else if (postProcess == PostProcess::Underwater)
 	{
 		gD3DContext->PSSetShader(gUnderwaterPostProcess, nullptr, 0);
 
-		gPostProcessingConstants.underWaterTimer += frameTime;
 		gPostProcessingConstants.frequency = 2.0f;
 		gPostProcessingConstants.amplitude = 0.005f;
+	}
+
+	else if (postProcess == PostProcess::DepthOfField)
+	{
+		gD3DContext->PSSetShader(gDepthOfFieldPostProcess, nullptr, 0);
+
+		// Bind the depth texture to slot t1
+		gD3DContext->PSSetShaderResources(1, 1, &gSceneDepthSRV);
+
+		// DoF parameters
+		if (!gPostProcessingConstants.focalDistance) gPostProcessingConstants.focalDistance = 40.0f; // Focal distance
+		gPostProcessingConstants.aperture = 5.0f; // Aperture
+		gPostProcessingConstants.nearClip = gCamera->NearClip(); // Sync with camera
+		gPostProcessingConstants.farClip = gCamera->FarClip(); // Sync with camera
+
+		if (KeyHit(Key_F4)) gPostProcessingConstants.focalDistance += 2.0f;
+		if (KeyHit(Key_F5)) gPostProcessingConstants.focalDistance -= 2.0f;
 	}
 
 	else if (postProcess == PostProcess::HueVerticalGradient)
@@ -764,33 +850,219 @@ void SelectPostProcessShaderAndTextures(PostProcess postProcess, float frameTime
 		hue += frameTime * 30.0f;
 		if (hue > 360.0f) hue = 0.0f;
 
-		// Set the top and bottom colours of the gradient
+		// Top and bottom colours of the gradient
 		gPostProcessingConstants.topColour = HSLToRGB(hue, 1.0f, 0.5f);
 		gPostProcessingConstants.bottomColour = HSLToRGB(hue + 180.0f, 1.0f, 0.5f);
+	}
+
+	else if (postProcess == PostProcess::MotionBlur)
+	{
+		gD3DContext->PSSetShader(gMotionBlurPostProcess, nullptr, 0);
+		gD3DContext->PSSetShaderResources(1, 1, &gFeedbackSRV);
+		
+		gPostProcessingConstants.blendFactor = 0.8f;
 	}
 
 	else if (postProcess == PostProcess::RetroGame)
 	{
 		gD3DContext->PSSetShader(gRetroGamePostProcess, nullptr, 0);
 
-		gPostProcessingConstants.pixelSize = 200.0f;
-		if(!gPostProcessingConstants.paletteSize) gPostProcessingConstants.paletteSize = Random(8, 25);
+		gPostProcessingConstants.pixelSize = 150.0f;
+		if (!gPostProcessingConstants.paletteSize) gPostProcessingConstants.paletteSize = Random(8, 25);
+	}
+
+	else if (postProcess == PostProcess::BrightPass)
+	{
+		gD3DContext->PSSetShader(gBrightPassPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.bloomThreshold = 0.6f; // Base threshold for bloom
+		gPostProcessingConstants.exposure = 1.0f; // Exposure adjustment
+		gPostProcessingConstants.bloomKnee = 0.1f; // Soft transition width
+	}
+
+	else if (postProcess == PostProcess::LensStar)
+	{
+		gD3DContext->PSSetShader(gLensStarPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.texelSize = {
+			2.0f / static_cast<float>(gViewportWidth),
+			2.0f / static_cast<float>(gViewportHeight)
+		};
+		gPostProcessingConstants.stepSize = 0.007f;
+		gPostProcessingConstants.attenuation = 0.8f;
+	}
+
+	else if (postProcess == PostProcess::Bloom)
+	{
+		gD3DContext->PSSetShader(gBloomPostProcess, nullptr, 0);
+
+		// Bind the blurred bright-pass textures to slots t1 and t2.
+		ID3D11ShaderResourceView* textures[3] = { gSceneTextureSRVThree, gSceneTextureSRV, gSceneTextureSRVTwo };
+		gD3DContext->PSSetShaderResources(0, 3, textures);
+
+		gPostProcessingConstants.bloomIntensity = 9.0f;
+		gPostProcessingConstants.starIntensity = 2.5f;
+	}
+
+	else if (postProcess == PostProcess::Tint)
+	{
+		gD3DContext->PSSetShader(gTintPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.tintColour = CVector3(1.0f, 0.0f, 0.0f); // Colour for tint shader
+	}
+
+	else if (postProcess == PostProcess::GreyNoise)
+	{
+		gD3DContext->PSSetShader(gGreyNoisePostProcess, nullptr, 0);
+
+		// Give pixel shader access to the noise texture
+		gD3DContext->PSSetShaderResources(1, 1, &gNoiseMapSRV);
+		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
+
+		// Noise scaling adjusts how fine the grey noise is.
+		const float grainSize = 140.0f; // Fineness of the noise grain
+		gPostProcessingConstants.noiseScale = { gViewportWidth / grainSize, gViewportHeight / grainSize };
+
+		// The noise offset is randomised to give a constantly changing noise effect (like tv static)
+		gPostProcessingConstants.noiseOffset = { Random(0.0f, 1.0f), Random(0.0f, 1.0f) };
+	}
+
+	else if (postProcess == PostProcess::Burn)
+	{
+		gD3DContext->PSSetShader(gBurnPostProcess, nullptr, 0);
+
+		// Give pixel shader access to the burn texture (basically a height map that the burn level ascends)
+		gD3DContext->PSSetShaderResources(1, 1, &gBurnMapSRV);
+		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
+
+		// Set and increase the burn level (cycling back to 0 when it reaches 1.0f)
+		const float burnSpeed = 0.2f;
+		gPostProcessingConstants.burnHeight = fmod(gPostProcessingConstants.burnHeight + burnSpeed * frameTime, 1.0f);
+	}
+
+	else if (postProcess == PostProcess::Distort)
+	{
+		gD3DContext->PSSetShader(gDistortPostProcess, nullptr, 0);
+
+		// Give pixel shader access to the distortion texture (containts 2D vectors (in R & G) to shift the texture UVs to give a cut-glass impression)
+		gD3DContext->PSSetShaderResources(1, 1, &gDistortMapSRV);
+		gD3DContext->PSSetSamplers(1, 1, &gTrilinearSampler);
+
+		// Set the level of distortion
+		gPostProcessingConstants.distortLevel = 0.03f;
+	}
+
+	else if (postProcess == PostProcess::Spiral)
+	{
+		gD3DContext->PSSetShader(gSpiralPostProcess, nullptr, 0);
+
+		// Set and increase the amount of spiral - use a tweaked cos wave to animate
+		static float wiggle = 0.0f;
+		const float wiggleSpeed = 1.0f;
+		gPostProcessingConstants.spiralLevel = ((1.0f - cos(wiggle)) * 4.0f);
+		wiggle += wiggleSpeed * frameTime;
+	}
+
+	else if (postProcess == PostProcess::HeatHaze)
+	{
+		gD3DContext->PSSetShader(gHeatHazePostProcess, nullptr, 0);
+	}	
+	
+	else if (postProcess == PostProcess::Fog)
+	{
+		gD3DContext->PSSetShader(gFogPostProcess, nullptr, 0);
+
+		// Bind the depth texture to slot t1
+		gD3DContext->PSSetShaderResources(1, 1, &gSceneDepthSRV);
+
+		gPostProcessingConstants.nearClip = gCamera->NearClip(); // Sync with camera
+		gPostProcessingConstants.farClip = gCamera->FarClip(); // Sync with camera
+		gPostProcessingConstants.fogColour = CVector3(0.7f, 0.8f, 1.0f); // Light blue fog (sky-like)
+		gPostProcessingConstants.fogDensity = 0.01f; // Lower values = lighter fog, higher = dense fog
+		gPostProcessingConstants.fogHeightStart = 200.0f; // Ground level where fog starts
+		gPostProcessingConstants.fogHeightDensity = 0.2f; // Higher values = more ground fog
+	}
+
+	else if (postProcess == PostProcess::GameBoy)
+	{
+		gD3DContext->PSSetShader(gGameBoyPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.gameBoyColour = CVector3(1.0f, 0.5f, 0.5f); // Game Boy-style tint
+		gPostProcessingConstants.gameBoyPixelSize = 100.0f; // Pixelation intensity
+		gPostProcessingConstants.gameBoyColourDepth = 5.0f; // Number of shades for grayscale effect
+	}
+
+	else if (postProcess == PostProcess::NightVision)
+	{
+		gD3DContext->PSSetShader(gNightVisionPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.nightVisionTint = CVector3(0.2f, 1.5f, 0.4f); // Night vision green tint
+		gPostProcessingConstants.noiseIntensity = 0.5f; // Controls noise/grain strength
+		gPostProcessingConstants.vignetteIntensity = 0.6f; // Controls vignette darkness
+		gPostProcessingConstants.flickerIntensity = 0.01f; // Controls flickering brightness variation
+		gPostProcessingConstants.brightnessBoost = CVector3(0.1f, 0.1f, 0.1f); // Brightness boost
+		gPostProcessingConstants.luminanceThreshold = 0.9f; // Threshold for dark areas
+		gPostProcessingConstants.intensity = 0.6f; // Intensity
+	}
+
+	else if (postProcess == PostProcess::ChromaticDis)
+	{
+		gD3DContext->PSSetShader(gChromaticDistortionPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.chromAbAmount = 0.1f; // Chromatic Aberration Intensity
+		gPostProcessingConstants.distortionAmount = 3.0f; // Lens Distortion Strength
+		gPostProcessingConstants.screenCenter = CVector2(0.5f, 0.5f);
+	}
+
+	else if (postProcess == PostProcess::Wireframe)
+	{
+		gD3DContext->PSSetShader(gWireframePostProcess, nullptr, 0);
+
+		gPostProcessingConstants.texelSize = {
+			2.0f / static_cast<float>(gViewportWidth),
+			2.0f / static_cast<float>(gViewportHeight)
+		};
+		gPostProcessingConstants.edgeThreshold = 0.3; // sensitivity
+		gPostProcessingConstants.edgePower = 1.8; // line sharpness
+	}
+
+	else if (postProcess == PostProcess::Invert)
+	{
+		gD3DContext->PSSetShader(gInvertPostProcess, nullptr, 0);
+	}
+
+	else if (postProcess == PostProcess::Sepia)
+	{
+		gD3DContext->PSSetShader(gSepiaPostProcess, nullptr, 0);
+	}
+
+	else if (postProcess == PostProcess::Dilation)
+	{
+		gD3DContext->PSSetShader(gDilationPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.kernelRadius = 3;
+	}
+
+	else if (postProcess == PostProcess::OnePassBlur)
+	{
+		gD3DContext->PSSetShader(gBlurPostProcess, nullptr, 0);
+
+		gPostProcessingConstants.texelSize = {
+			2.0f / static_cast<float>(gViewportWidth),
+			2.0f / static_cast<float>(gViewportHeight)
+		};
 	}
 }
 
 // Perform a full-screen post process from "scene texture" to back buffer
 void FullScreenPostProcess(PostProcess postProcess, float frameTime, int ppIndex = 0)
 {
-	if (ppIndex % 2 == 0)
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTargetTwo, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRV);
-	}
-	else
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTarget, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRVTwo);
-	}
+	// Determine source and target based on ping-pong index
+	gSourceSRV = (ppIndex % 2 == 0) ? gSceneTextureSRV : gSceneTextureSRVTwo;
+	gTargetRTV = (ppIndex % 2 == 0) ? gSceneRenderTargetTwo : gSceneRenderTarget;
+
+	gD3DContext->OMSetRenderTargets(1, &gTargetRTV, gDepthStencil);
+	gD3DContext->PSSetShaderResources(0, 1, &gSourceSRV);
 
 	// Using special vertex shader that creates its own data for a 2D screen quad
 	gD3DContext->VSSetShader(g2DQuadVertexShader, nullptr, 0);
@@ -834,7 +1106,8 @@ void FullScreenPostProcess(PostProcess postProcess, float frameTime, int ppIndex
 	gD3DContext->Draw(4, 0);
 
 	// Comment
-	gD3DContext->PSSetShaderResources(0, 1, &nullSRV);
+	gD3DContext->PSSetShaderResources(0, 1, &gNullSRV);
+	gD3DContext->PSSetShaderResources(1, 1, &gNullSRV);
 }
 
 
@@ -844,16 +1117,11 @@ void AreaPostProcess(PostProcess postProcess, CVector3 worldPoint, CVector2 area
 	// First perform a full-screen copy of the scene to back-buffer
 	FullScreenPostProcess(PostProcess::Copy, frameTime, ppIndex);
 
-	if (ppIndex % 2 == 0)
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTargetTwo, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRV);
-	}
-	else
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTarget, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRVTwo);
-	}
+	gSourceSRV = (ppIndex % 2 == 0) ? gSceneTextureSRV : gSceneTextureSRVTwo;
+	gTargetRTV = (ppIndex % 2 == 0) ? gSceneRenderTargetTwo : gSceneRenderTarget;
+
+	gD3DContext->OMSetRenderTargets(1, &gTargetRTV, gDepthStencil);
+	gD3DContext->PSSetShaderResources(0, 1, &gSourceSRV);
 
 	gD3DContext->PSSetSamplers(0, 1, &gPointSampler);
 
@@ -928,16 +1196,11 @@ void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& 
 	// First perform a full-screen copy of the scene to back-buffer
 	FullScreenPostProcess(PostProcess::Copy, frameTime, ppIndex);
 
-	if (ppIndex % 2 == 0)
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTargetTwo, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRV);
-	}
-	else
-	{
-		gD3DContext->OMSetRenderTargets(1, &gSceneRenderTarget, gDepthStencil);
-		gD3DContext->PSSetShaderResources(0, 1, &gSceneTextureSRVTwo);
-	}
+	gSourceSRV = (ppIndex % 2 == 0) ? gSceneTextureSRV : gSceneTextureSRVTwo;
+	gTargetRTV = (ppIndex % 2 == 0) ? gSceneRenderTargetTwo : gSceneRenderTarget;
+
+	gD3DContext->OMSetRenderTargets(1, &gTargetRTV, gDepthStencil);
+	gD3DContext->PSSetShaderResources(0, 1, &gSourceSRV);
 
 	gD3DContext->PSSetSamplers(0, 1, &gPointSampler);
 
@@ -979,6 +1242,18 @@ void PolygonPostProcess(PostProcess postProcess, const std::array<CVector3, 4>& 
 
 
 //**************************
+
+void RenderDepthBufferFromCamera(Camera* camera)
+{
+	// Bind our scene render target and bind the custom depth-stencil view that will receive the depth data.
+	gD3DContext->OMSetRenderTargets(1, &gSceneRenderTarget, gSceneDepthDSV);
+
+	// Clear the render target to the background colour and clear the custom depth buffer;
+	gD3DContext->ClearRenderTargetView(gSceneRenderTarget, &gBackgroundColor.r);
+	gD3DContext->ClearDepthStencilView(gSceneDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	RenderSceneFromCamera(camera);
+}
 
 
 // Rendering the scene
@@ -1024,12 +1299,16 @@ void RenderScene(float frameTime)
 	// Render the scene from the main camera
 	RenderSceneFromCamera(gCamera);
 
+	// Render the scene normally.
+	if (gCurrentPostProcess == PostProcess::Fog || gCurrentPostProcess == PostProcess::DepthOfField)
+	{
+		RenderDepthBufferFromCamera(gCamera);
+	}
 
 	////--------------- Scene completion ---------------////
 
     if (!gActivePostProcesses.empty())
     {
-        bool useTextureOne = true;
 		int ppIndex = 0;
 
 		for (std::pair<PostProcess, PostProcessMode> postProcessAndMode : gActivePostProcesses)
@@ -1039,7 +1318,19 @@ void RenderScene(float frameTime)
 
             if (gCurrentPostProcessMode == PostProcessMode::Fullscreen)
             {	
-                FullScreenPostProcess(gCurrentPostProcess, frameTime, ppIndex++);
+				if (gCurrentPostProcess == PostProcess::BrightPass)
+				{
+					gD3DContext->CopyResource(gSceneTextureThree, gSceneTexture);
+					FullScreenPostProcess(PostProcess::Copy, frameTime, ppIndex);
+					gD3DContext->CopyResource(gSceneTextureTwo, gSceneTexture);
+				}
+
+				FullScreenPostProcess(gCurrentPostProcess, frameTime, ppIndex++);
+
+				if (gCurrentPostProcess == PostProcess::MotionBlur)
+				{
+					gD3DContext->CopyResource(gFeedbackTexture, gSceneTexture);
+				}
             }
             else if (gCurrentPostProcessMode == PostProcessMode::Area)
             {
@@ -1064,11 +1355,6 @@ void RenderScene(float frameTime)
 				static CMatrix4x4 polyMatrix = MatrixTranslation({ 0.0f, 0.0f, 0.0f });
 				PolygonPostProcess(gCurrentPostProcess, GetWallOpeningCoords(ppIndex), polyMatrix, frameTime, ppIndex++);
 			}
-
-            ID3D11ShaderResourceView* nullSRV = nullptr;
-            gD3DContext->PSSetShaderResources(0, 1, &nullSRV);
-
-            useTextureOne = !useTextureOne;
         }
     }
 	else
@@ -1100,15 +1386,103 @@ void UpdateScene(float frameTime)
 
 
 	// Toggle effects with current mode
-	if (KeyHit(Key_1)) AddPostProcessEffect(PostProcess::VerticalGradient, gSelectedPostProcessMode);
+	if (KeyHit(Key_1)) 
+	{
+		AddPostProcessEffect(PostProcess::VerticalGradient, gSelectedPostProcessMode);
+	}
 	if (KeyHit(Key_2))
 	{
 		AddPostProcessEffect(PostProcess::GaussianBlurHorizontal, gSelectedPostProcessMode);
 		AddPostProcessEffect(PostProcess::GaussianBlurVertical, gSelectedPostProcessMode);
 	}
-	if (KeyHit(Key_3)) AddPostProcessEffect(PostProcess::Underwater, gSelectedPostProcessMode);
-	if (KeyHit(Key_5)) AddPostProcessEffect(PostProcess::HueVerticalGradient, gSelectedPostProcessMode);
-	if (KeyHit(Key_6)) AddPostProcessEffect(PostProcess::RetroGame, gSelectedPostProcessMode);
+	if (KeyHit(Key_3))
+	{
+		AddPostProcessEffect(PostProcess::Underwater, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_4))
+	{
+		AddPostProcessEffect(PostProcess::DepthOfField, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_5))
+	{
+		AddPostProcessEffect(PostProcess::HueVerticalGradient, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_6))
+	{
+		AddPostProcessEffect(PostProcess::MotionBlur, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_7))
+	{
+		AddPostProcessEffect(PostProcess::RetroGame, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_8)) 
+	{
+		AddPostProcessEffect(PostProcess::BrightPass, gSelectedPostProcessMode);
+		AddPostProcessEffect(PostProcess::GaussianBlurHorizontal, gSelectedPostProcessMode);
+		AddPostProcessEffect(PostProcess::GaussianBlurVertical, gSelectedPostProcessMode);
+		AddPostProcessEffect(PostProcess::LensStar, gSelectedPostProcessMode);
+		AddPostProcessEffect(PostProcess::Bloom, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_9))
+	{
+		AddPostProcessEffect(PostProcess::Tint, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_R)) 
+	{
+		AddPostProcessEffect(PostProcess::GreyNoise, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_T))
+	{
+		AddPostProcessEffect(PostProcess::Burn, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_Y))
+	{
+		AddPostProcessEffect(PostProcess::Distort, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_U))
+	{
+		AddPostProcessEffect(PostProcess::Spiral, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_I))
+	{
+		AddPostProcessEffect(PostProcess::HeatHaze, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_O))
+	{
+		AddPostProcessEffect(PostProcess::Fog, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_F))
+	{
+		AddPostProcessEffect(PostProcess::GameBoy, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_G))
+	{
+		AddPostProcessEffect(PostProcess::NightVision, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_H))
+	{
+		AddPostProcessEffect(PostProcess::ChromaticDis, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_J))
+	{
+		AddPostProcessEffect(PostProcess::Wireframe, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_K))
+	{
+		AddPostProcessEffect(PostProcess::Invert, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_C))
+	{
+		AddPostProcessEffect(PostProcess::Sepia, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_V))
+	{
+		AddPostProcessEffect(PostProcess::Dilation, gSelectedPostProcessMode);
+	}
+	if (KeyHit(Key_B))
+	{
+		AddPostProcessEffect(PostProcess::OnePassBlur, gSelectedPostProcessMode);
+	}
 
 	if (KeyHit(Key_Back)) RemovePostProcessEffect();
 	if (KeyHit(Key_0))
@@ -1117,42 +1491,8 @@ void UpdateScene(float frameTime)
 		InitPolygonEffects();
 	}
 
-	//if (KeyHit(Key_1))   gCurrentPostProcess = PostProcess::Tint;
-	//if (KeyHit(Key_2))   gCurrentPostProcess = PostProcess::GreyNoise;
-	//if (KeyHit(Key_3))   gCurrentPostProcess = PostProcess::Burn;
-	//if (KeyHit(Key_4))   gCurrentPostProcess = PostProcess::Distort;
-	//if (KeyHit(Key_5))   gCurrentPostProcess = PostProcess::Spiral;
-	//if (KeyHit(Key_6))   gCurrentPostProcess = PostProcess::HeatHaze;
-	//if (KeyHit(Key_9))   gCurrentPostProcess = PostProcess::Copy;
-	//if (KeyHit(Key_0))   gCurrentPostProcess = PostProcess::None;
-
-	// Post processing settings - all data for post-processes is updated every frame whether in use or not (minimal cost)
-	
-	// Colour for tint shader
-	gPostProcessingConstants.tintColour = { 1, 0, 0 };
-
-	// Noise scaling adjusts how fine the grey noise is.
-	const float grainSize = 140; // Fineness of the noise grain
-	gPostProcessingConstants.noiseScale  = { gViewportWidth / grainSize, gViewportHeight / grainSize };
-
-	// The noise offset is randomised to give a constantly changing noise effect (like tv static)
-	gPostProcessingConstants.noiseOffset = { Random(0.0f, 1.0f), Random(0.0f, 1.0f) };
-
-	// Set and increase the burn level (cycling back to 0 when it reaches 1.0f)
-	const float burnSpeed = 0.2f;
-	gPostProcessingConstants.burnHeight = fmod(gPostProcessingConstants.burnHeight + burnSpeed * frameTime, 1.0f);
-
-	// Set the level of distortion
-	gPostProcessingConstants.distortLevel = 0.03f;
-
-	// Set and increase the amount of spiral - use a tweaked cos wave to animate
-	static float wiggle = 0.0f;
-	const float wiggleSpeed = 1.0f;
-	gPostProcessingConstants.spiralLevel = ((1.0f - cos(wiggle)) * 4.0f );
-	wiggle += wiggleSpeed * frameTime;
-
-	// Update heat haze timer
-	gPostProcessingConstants.heatHazeTimer += frameTime;
+	// Update timer
+	gPostProcessingConstants.timer += frameTime;
 
 	//***********
 

@@ -150,33 +150,97 @@ cbuffer PostProcessingConstants : register(b1)
 	float3 paddingE;
 
 	// Heat haze post-process settings
-	float  gHeatHazeTimer;
+	float  gTimer;
 	float3 paddingF;
     
-    // Comment 1
+	// Vertical gradient post-process settings
     float3 gTopColour;
-    float paddingG;
+    float  paddingG;
     
-    // Comment 1
     float3 gBottomColour;
-    float paddingH;
+    float  paddingH;
         
-    // Comment 3
-    float gUnderWaterTimer;
-    float gFrequency;
-    float gAmplitude;
-    float paddingI;
-    
-	// Comment 2
+	// Gaussian blur post-process pass settings
     float2 gTexelSize;
-    float gBlurStrength;
-    float gFeedbackAmount;
+    float  gBlurStrength;
+    float  paddingI;
+
+	// Underwater post-process pass settings
+    float  gFrequency;
+    float  gAmplitude;
+    float2 paddingJ;
     
-    //Comment 4
-    float gPixelSize;
-    int gPaletteSize;
-    float3 paddingJ;
+	// Depth of Field post-process pass settings
+    float  gFocalDistance;
+    float  gAperture;
+    float  gNearClip;
+    float  gFarClip;
+        
+	// Motion blur post-process pass settings
+    float  gBlendFactor;
+    float3 paddingK;
+
+	// Retro game post-process pass settings
+    float  gPixelSize;
+    int    gPaletteSize;
+    float2 paddingL;
     
+	// Bright pass post-process pass settings
+    float  gBloomThreshold;
+    float  gExposure;
+    float  gBloomKnee;
+    float  paddingM;
+    
+	// Lens star post-process pass settings
+    float  gStepSize;
+    float  gAttenuation;
+    float2 paddingN;
+    
+	// Bloom post-process pass settings
+    float gBloomIntensity;
+    float gStarIntensity;
+    float2 paddingO;
+    
+	// Fog post-process pass settings
+    float3 gFogColour;
+    float  gFogDensity;
+    float  gFogHeightStart;
+    float  gFogHeightDensity;
+    float2 paddingP;
+    
+	// Game boy post-process pass settings
+    float3 gGameBoyColour;
+    float  gGameBoyPixelSize;
+    float  gGameBoyColourDepth;
+    float3 paddingQ;
+    
+	// Night vision post-process pass settings
+    float3 gNightVisionTint;
+    float  gNoiseIntensity;
+    float  gVignetteIntensity;
+    float  gFlickerIntensity;
+    float2 paddingR;
+    
+    float3 gBrightnessBoost;
+    float  gLuminanceThreshold;
+    float  gIntensity;
+    float3 paddingS;
+    
+	// Chromatic aberration & distortion post-process pass settings
+    float  gChromAbAmount;
+    float  gDistortionAmount;
+    float2 gScreenCenter;
+    
+	// Wireframe post-process pass settings
+    float  gEdgeThreshold;
+    float  gEdgePower;
+    float2 paddingT;
+    
+	// Dilation post-process pass settings
+    int    gKernelRadius;
+    float3 paddingU;
+
+
 }
 
 //**************************
